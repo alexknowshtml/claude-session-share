@@ -4,6 +4,8 @@ Render [Claude Code](https://claude.ai/code) JSONL session transcripts as styled
 
 **[Live demo →](https://jfdi.bot/session-demo)**
 
+[![Session Share screenshot](docs/screenshot.png)](https://jfdi.bot/session-demo)
+
 ## What it does
 
 - Parses Claude Code `.jsonl` session files
