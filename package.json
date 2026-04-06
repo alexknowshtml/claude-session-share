@@ -1,0 +1,30 @@
+{
+  "name": "claude-session-share",
+  "version": "1.0.0",
+  "description": "Render Claude Code JSONL session transcripts as styled HTML pages and upload to any S3-compatible storage",
+  "type": "module",
+  "scripts": {
+    "start": "bun session-share.ts"
+  },
+  "bin": {
+    "session-share": "./session-share.ts"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "transcript",
+    "session",
+    "html",
+    "viewer",
+    "s3"
+  ],
+  "author": "alexknowshtml",
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "marked": "^9.0.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}
