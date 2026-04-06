@@ -997,6 +997,7 @@ function generateHtml(filePath: string): string {
   <div class="nav-spacer"></div>
   <div class="page">
     <h1 class="page-title">${esc(title)}</h1>
+    <div class="session-meta">${dateStr} · ${msgCount} exchange${msgCount !== 1 ? "s" : ""}</div>
     <div class="conversation">
       ${messages}
     </div>
