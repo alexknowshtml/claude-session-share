@@ -130,6 +130,10 @@ function renderMd(text: string): string {
 
 // ─── Credential Redaction ───────────────────────────────────────────────────
 // Scrub sensitive values from Bash commands before rendering.
+// Module-level rendering flags — set by main() before calling generateHtml()
+let _showSensitiveBash = false;  // --show-sensitive-bash flag
+let _hasSensitiveBash = false;   // set to true during rendering if any sensitive bash found
+
 // Matches env var assignments where the name contains KEY, SECRET, TOKEN,
 // PASSWORD, or CREDENTIAL (case-insensitive match on uppercase names).
 
@@ -192,11 +196,33 @@ function renderToolUse(block: ContentBlock, resultIndex?: Map<string, ContentBlo
         </div>
       </div>`;
     }
+    if (credRedacted) {
+      _hasSensitiveBash = true;
+      if (!_showSensitiveBash) {
+        // Default: suppress entirely — don't risk leaking anything
+        return `<div class="tool-block tool-bash-hidden">
+          <div class="tool-header">
+            <span class="tool-badge tool-badge-bash">Bash</span>
+            ${desc ? `<span class="tool-desc">${esc(desc)}</span>` : ""}
+            <span class="redaction-notice">🔒 hidden — contained sensitive data</span>
+          </div>
+        </div>`;
+      }
+      // --show-sensitive-bash mode: render with danger banner (upload will be blocked)
+      return `<div class="tool-block tool-bash tool-bash-danger">
+        <div class="danger-banner">⚠️ WARNING: This command contained credentials. Do not share this page publicly.</div>
+        <div class="tool-header">
+          <span class="tool-badge tool-badge-bash">Bash</span>
+          ${desc ? `<span class="tool-desc">${esc(desc)}</span>` : ""}
+        </div>
+        <pre><code>${esc(rawCmd)}</code></pre>
+        ${inlineResult}
+      </div>`;
+    }
     return `<div class="tool-block tool-bash">
       <div class="tool-header">
         <span class="tool-badge tool-badge-bash">Bash</span>
         ${desc ? `<span class="tool-desc">${esc(desc)}</span>` : ""}
-        ${credRedacted ? `<span class="redaction-notice">credentials redacted</span>` : ""}
       </div>
       <pre><code>${esc(cmd)}</code></pre>
       ${inlineResult}
@@ -564,6 +590,13 @@ const CSS = `
   .tool-bash .tool-desc { color: rgba(255,255,255,0.6); font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
   .redaction-notice { font-family: var(--font-body); font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--yellow); background: rgba(244,162,97,0.15); padding: 0.2em 0.5em; border-radius: 3px; white-space: nowrap; }
   .tool-bash pre { background: rgba(28,28,28,0.04); color: var(--ink); }
+  /* Hidden bash (contains credentials — suppressed by default) */
+  .tool-bash-hidden { border: 1px solid rgba(244,162,97,0.3); background: rgba(244,162,97,0.04); }
+  .tool-bash-hidden .tool-header { background: rgba(244,162,97,0.12); color: var(--ink); }
+  /* Danger bash (--show-sensitive-bash mode) */
+  .tool-bash-danger { border: 2px solid #e63946; }
+  .tool-bash-danger .tool-header { background: #e63946; }
+  .danger-banner { background: #e63946; color: #fff; font-weight: 700; font-size: 0.9em; padding: 0.5em 1em; text-align: center; letter-spacing: 0.02em; }
   /* Write */
   .tool-write { border: 1px solid rgba(42,157,143,0.3); }
   .tool-write .tool-header { background: var(--green); color: var(--paper); }
@@ -1060,6 +1093,15 @@ async function main() {
     args.splice(outputFlagIdx, 2);
   }
 
+  // Parse --show-sensitive-bash flag: shows credential-containing bash blocks with a
+  // danger warning instead of suppressing them. Upload is blocked when this flag is set.
+  const showSensitiveBashIdx = args.indexOf("--show-sensitive-bash");
+  _showSensitiveBash = showSensitiveBashIdx !== -1;
+  if (showSensitiveBashIdx !== -1) args.splice(showSensitiveBashIdx, 1);
+
+  // Reset sensitive bash tracker before each render
+  _hasSensitiveBash = false;
+
   const arg = args[0];
   const filePath = arg ? path.resolve(arg) : await pickFile();
 
@@ -1070,9 +1112,20 @@ async function main() {
   const html = generateHtml(filePath);
   const slug = path.basename(filePath, ".jsonl").slice(0, 8);
 
+  // Block upload if sensitive bash was found in --show-sensitive-bash mode
+  if (_hasSensitiveBash && _showSensitiveBash && !outputPath) {
+    throw new Error(
+      "Session contains sensitive bash commands. Upload blocked.\n" +
+      "Use --output <file> to save locally for review only."
+    );
+  }
+
   if (outputPath) {
     fs.writeFileSync(outputPath, html);
     console.log(`\n✓ Saved to ${outputPath}\n`);
+    if (_hasSensitiveBash) {
+      console.warn("⚠️  Warning: session contained sensitive bash commands. Review before sharing.\n");
+    }
   } else {
     const tmpFile = path.join(os.tmpdir(), `transcript-${Date.now()}.html`);
     fs.writeFileSync(tmpFile, html);

@@ -104,15 +104,68 @@ export SESSION_SHARE_SYSTEM_FILTER="[MY-AGENT-TASK]"
 
 If unset, all user messages are rendered as-is.
 
-## Credential redaction
+## Credential safety
 
-Bash commands are automatically scanned before rendering. Any environment variable assignment where the name contains `KEY`, `SECRET`, `TOKEN`, `PASSWORD`, or `CREDENTIAL` has its value replaced with `[REDACTED]`. An orange badge appears in the tool header when redaction fires.
+### How credentials end up in sessions
 
-This protects against accidentally sharing sessions where credentials were passed inline (e.g. `AWS_SECRET_ACCESS_KEY=abc123 bun script.ts`).
+Claude Code records every tool call in the session JSONL file — including bash commands. If Claude runs a command like:
+
+```bash
+export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE && aws s3 ls
+```
+
+that literal string is stored in the transcript. The same applies to any bash command that sets sensitive env vars inline.
+
+Credentials can appear in multiple places in a session:
+
+- **Bash inputs** — commands Claude wrote that include `KEY=value`, `TOKEN=value`, etc.
+- **Bash outputs** — if a script printed a credential value, ran `env | grep KEY`, or echoed a secret
+- **Write/Edit blocks** — if Claude wrote a file containing credentials (e.g. a `.env` file with real values)
+- **Read blocks** — if Claude read a file containing credentials and the content was captured
+
+### What's handled automatically
+
+**Bash inputs are scanned and suppressed by default.** Any bash command containing an env var assignment where the name includes `KEY`, `SECRET`, `TOKEN`, `PASSWORD`, or `CREDENTIAL` is replaced with a `🔒 hidden — contained sensitive data` placeholder before rendering. Nothing from those commands reaches the HTML.
+
+Examples of what's caught: `AWS_ACCESS_KEY_ID=...`, `GITHUB_TOKEN=...`, `DB_PASSWORD=...`, `STRIPE_SECRET_KEY=...`
+
+### What's NOT handled automatically
+
+The auto-detection only covers bash input patterns. It does **not** catch:
+
+- Credentials in **bash outputs** (tool results from running commands)
+- Credentials in **Write/Edit/Read** tool blocks
+- Credentials passed as **positional CLI arguments** (e.g. `my-tool --key=abc123`)
+- Credentials that appear in **assistant text** responses
+
+### Recommended workflow
+
+Always preview locally before uploading, especially for sessions that involved credentials, `.env` files, or API setup:
+
+```bash
+# 1. Render locally first
+bun session-share.ts session.jsonl --output review.html
+
+# 2. Open and inspect
+open review.html   # or xdg-open on Linux
+
+# 3. Upload only if satisfied
+bun session-share.ts session.jsonl
+```
+
+### Reviewing suppressed bash commands
+
+To see suppressed commands with a danger warning (local review only):
+
+```bash
+bun session-share.ts session.jsonl --show-sensitive-bash --output review.html
+```
+
+Upload is blocked when `--show-sensitive-bash` is used — `--output` is required.
 
 ## Privacy
 
-Session files may contain private information. Review before sharing — especially sessions involving emails, credentials, or personal data. Credential redaction catches common patterns but is not exhaustive.
+Session files may contain private information — emails, personal data, API keys, internal tooling details. Review before sharing. Use `--output` to save locally first and inspect before uploading.
 
 ## License
 
