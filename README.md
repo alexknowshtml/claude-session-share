@@ -104,9 +104,15 @@ export SESSION_SHARE_SYSTEM_FILTER="[MY-AGENT-TASK]"
 
 If unset, all user messages are rendered as-is.
 
+## Credential redaction
+
+Bash commands are automatically scanned before rendering. Any environment variable assignment where the name contains `KEY`, `SECRET`, `TOKEN`, `PASSWORD`, or `CREDENTIAL` has its value replaced with `[REDACTED]`. An orange badge appears in the tool header when redaction fires.
+
+This protects against accidentally sharing sessions where credentials were passed inline (e.g. `AWS_SECRET_ACCESS_KEY=abc123 bun script.ts`).
+
 ## Privacy
 
-Session files may contain private information. Review before sharing — especially sessions involving emails, credentials, or personal data.
+Session files may contain private information. Review before sharing — especially sessions involving emails, credentials, or personal data. Credential redaction catches common patterns but is not exhaustive.
 
 ## License
 
