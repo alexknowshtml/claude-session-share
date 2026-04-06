@@ -65,35 +65,50 @@ ls ~/.claude/projects/<project-slug>/43a9e08c*.jsonl
 ### Keyword search
 Search session content for relevant text:
 ```bash
-python3 -c "
-import json, glob, os
+bun -e "
+import { readdirSync, readFileSync, statSync } from 'fs';
+import { join, basename } from 'path';
+import { homedir } from 'os';
 
-query = 'KEYWORD_HERE'
-results = []
-for f in glob.glob(os.path.expanduser('~/.claude/projects/**/*.jsonl'), recursive=True):
-    try:
-        with open(f) as fh:
-            content = fh.read()
-        if query.lower() in content.lower():
-            mtime = os.path.getmtime(f)
-            for line in content.splitlines():
-                entry = json.loads(line)
-                text = ''
-                c = entry.get('message', {}).get('content', '')
-                if isinstance(c, str): text = c
-                elif isinstance(c, list):
-                    for b in c:
-                        if b.get('type') == 'text': text += b.get('text', '')
-                if query.lower() in text.lower():
-                    preview = text[:80].replace('\n', ' ')
-                    break
-            results.append((mtime, os.path.basename(f)[:8], f, preview))
-    except: pass
-results.sort(reverse=True)
-for mtime, sid, path, preview in results[:5]:
-    from datetime import datetime
-    dt = datetime.fromtimestamp(mtime).strftime('%b %d')
-    print(f'{sid}  {dt}  {preview[:60]}')
+const query = 'KEYWORD_HERE';
+const base = join(homedir(), '.claude/projects');
+
+function findJsonl(dir: string): string[] {
+  const out: string[] = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) out.push(...findJsonl(p));
+    else if (e.name.endsWith('.jsonl')) out.push(p);
+  }
+  return out;
+}
+
+const results: [number, string, string][] = [];
+for (const f of findJsonl(base)) {
+  try {
+    const content = readFileSync(f, 'utf8');
+    if (!content.toLowerCase().includes(query.toLowerCase())) continue;
+    let preview = '';
+    for (const line of content.split('\n')) {
+      try {
+        const entry = JSON.parse(line);
+        const c = entry?.message?.content;
+        let text = typeof c === 'string' ? c
+          : Array.isArray(c) ? c.filter((b:any) => b.type==='text').map((b:any) => b.text).join('') : '';
+        if (text.toLowerCase().includes(query.toLowerCase())) {
+          preview = text.slice(0, 80).replace(/\n/g, ' ');
+          break;
+        }
+      } catch {}
+    }
+    results.push([statSync(f).mtimeMs, basename(f).slice(0, 8), preview]);
+  } catch {}
+}
+results.sort((a, b) => b[0] - a[0]);
+for (const [t, id, preview] of results.slice(0, 5)) {
+  const dt = new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  console.log(id + '  ' + dt + '  ' + preview.slice(0, 60));
+}
 "
 ```
 
