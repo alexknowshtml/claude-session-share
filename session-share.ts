@@ -128,6 +128,23 @@ function renderMd(text: string): string {
   return marked.parse(text, { async: false, breaks: true }) as string;
 }
 
+// ─── Credential Redaction ───────────────────────────────────────────────────
+// Scrub sensitive values from Bash commands before rendering.
+// Matches env var assignments where the name contains KEY, SECRET, TOKEN,
+// PASSWORD, or CREDENTIAL (case-insensitive match on uppercase names).
+
+function redactCredentials(text: string): { redacted: string; changed: boolean } {
+  const pattern = /\b([A-Z][A-Z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL)[A-Z0-9_]*)\s*=\s*("([^"]+)"|'([^']+)'|([^\s;&|>\\\n]+))/g;
+  let changed = false;
+  const redacted = text.replace(pattern, (match, name, _full, dq, sq, bare) => {
+    const value = dq ?? sq ?? bare ?? "";
+    if (value.length < 8) return match; // skip obviously non-secret short values
+    changed = true;
+    return `${name}=[REDACTED]`;
+  });
+  return { redacted, changed };
+}
+
 // ─── Block Renderers ────────────────────────────────────────────────────────
 
 function renderInlineResult(block: ContentBlock, toolName: string): string {
@@ -154,7 +171,8 @@ function renderToolUse(block: ContentBlock, resultIndex?: Map<string, ContentBlo
   const inlineResult = resultBlock ? renderInlineResult(resultBlock, name) : "";
 
   if (name === "Bash") {
-    const cmd = (input.command as string) || "";
+    const rawCmd = (input.command as string) || "";
+    const { redacted: cmd, changed: credRedacted } = redactCredentials(rawCmd);
     const desc = (input.description as string) || "";
     // suggest-options.sh — parse and show the actual button labels
     if (cmd.includes("suggest-options.sh")) {
@@ -178,6 +196,7 @@ function renderToolUse(block: ContentBlock, resultIndex?: Map<string, ContentBlo
       <div class="tool-header">
         <span class="tool-badge tool-badge-bash">Bash</span>
         ${desc ? `<span class="tool-desc">${esc(desc)}</span>` : ""}
+        ${credRedacted ? `<span class="redaction-notice">credentials redacted</span>` : ""}
       </div>
       <pre><code>${esc(cmd)}</code></pre>
       ${inlineResult}
@@ -543,6 +562,7 @@ const CSS = `
   .tool-bash .tool-header { background: var(--ink); color: var(--paper); }
   .tool-badge-bash { background: rgba(255,255,255,0.15); }
   .tool-bash .tool-desc { color: rgba(255,255,255,0.6); font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  .redaction-notice { font-family: var(--font-body); font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--yellow); background: rgba(244,162,97,0.15); padding: 0.2em 0.5em; border-radius: 3px; white-space: nowrap; }
   .tool-bash pre { background: rgba(28,28,28,0.04); color: var(--ink); }
   /* Write */
   .tool-write { border: 1px solid rgba(42,157,143,0.3); }
