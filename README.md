@@ -2,12 +2,15 @@
 
 Render [Claude Code](https://claude.ai/code) JSONL session transcripts as styled HTML pages and upload to any S3-compatible storage for sharing.
 
+**[Live demo →](https://jfdi.bot/session-demo)**
+
 ## What it does
 
 - Parses Claude Code `.jsonl` session files
 - Renders a clean, readable HTML page with syntax-highlighted code, collapsible tool calls, thinking blocks, and image support
 - Uploads to S3-compatible storage (AWS S3, DigitalOcean Spaces, Cloudflare R2, MinIO, etc.)
 - Or writes the HTML locally with `--output`
+- Sensitive bash commands (credentials, tokens) are suppressed automatically — nothing leaks to the rendered page
 
 ## Requirements
 
