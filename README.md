@@ -47,6 +47,7 @@ Set these environment variables to enable S3 upload:
 | `AWS_REGION` | No | Region (default: `us-east-1`) |
 | `S3_PREFIX` | No | Key prefix (default: `public/`) |
 | `S3_PUBLIC_URL` | No | Override the public URL base |
+| `SESSION_SHARE_SYSTEM_FILTER` | No | String pattern marking agent-injected system messages (see below) |
 
 ### DigitalOcean Spaces example
 
@@ -91,6 +92,17 @@ The interactive picker shows recent sessions sorted by modification time.
 - Skill/command expansions — collapsed with label
 - Images shared in the session
 - Code with syntax highlighting
+
+## System message filtering
+
+If your Claude Code setup injects agent context into user messages (e.g. a Discord bridge that wraps messages with a task header), set `SESSION_SHARE_SYSTEM_FILTER` to the marker string used in those injections. The renderer will extract the actual human message from the `**Message:**` field and hide the surrounding system context.
+
+```bash
+# Example: messages containing this pattern are treated as agent-injected context
+export SESSION_SHARE_SYSTEM_FILTER="[MY-AGENT-TASK]"
+```
+
+If unset, all user messages are rendered as-is.
 
 ## Privacy
 

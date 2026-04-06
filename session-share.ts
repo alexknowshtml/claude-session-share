@@ -56,15 +56,18 @@ function parseTranscript(filePath: string): Entry[] {
 }
 
 // Extract the human-visible part of a user message.
-// Discord sessions wrap the real message in "**Message:**" field of a system prompt.
+// If SESSION_SHARE_SYSTEM_FILTER is set, messages containing that pattern are treated as
+// agent-injected system context: the **Message:** field is extracted and returned,
+// or "" if no readable message is present.
 function extractUserText(content: string | ContentBlock[]): string {
   const raw = typeof content === "string" ? content
     : Array.isArray(content)
       ? content.filter((b) => b.type === "text").map((b) => b.text || "").join("\n")
       : "";
 
-  // Discord agent context injection — extract just the **Message:** section
-  if (raw.includes("[ANDY-INTERNAL-TASK]")) {
+  // System filter: if env var is set and pattern matches, extract the **Message:** section
+  const systemFilter = process.env.SESSION_SHARE_SYSTEM_FILTER;
+  if (systemFilter && raw.includes(systemFilter)) {
     const msgMatch = raw.match(/\*\*Message:\*\*\s*([\s\S]*?)(?:\n##|\n\*\*|$)/);
     if (msgMatch) {
       const msg = msgMatch[1].trim();
