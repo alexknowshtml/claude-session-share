@@ -945,7 +945,7 @@ function generateHtml(filePath: string): string {
     <div class="conversation">
       ${messages}
     </div>
-    <div class="page-footer"><span class="footer-mark">S</span> claude-session-share · Claude Code Session Viewer</div>
+    <div class="page-footer"><span class="footer-mark">S</span> claude-session-share · Claude Code Session Share · <a href="https://jfdi.bot" target="_blank" rel="noopener" style="color:var(--yellow);text-decoration:none;">jfdi.bot</a></div>
   </div>
 </body>
 </html>`;
